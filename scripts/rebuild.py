@@ -180,6 +180,8 @@ def rebuild_works(refresh_likes=True):
             row["cover"] = w["cover"]
         if w.get("base"):
             row["base"] = w["base"]
+        if w.get("based_on"):
+            row["based_on"] = w["based_on"]
         vk = rules.video_kind(w.get("video") or "")
         if vk:
             row["video_kind"] = vk

@@ -329,7 +329,7 @@ def accept_profile(body, number, user):
     c = checked(rules.check_card, req)
     no_banned(c["nickname"], c.get("bio"), *(c.get("bases") or []), *(l.get("label") for l in c.get("links") or []))
     card = {"login": login}
-    for k in ("nickname", "bio", "langs", "vrchat", "links", "bases", "birthday", "following"):
+    for k in ("nickname", "bio", "langs", "vrchat", "links", "bases", "birthday", "following", "showcase"):
         if k in c:
             card[k] = c[k]
     if "following" in card:
@@ -372,8 +372,10 @@ def accept_work(body, number, user, created):
         old = read_json(path_of("works", wid + ".json"), None)
         if old and old.get("author") != login:
             raise Refused("作品 %s 已属于其他账号" % wid)
+    if w.get("based_on") == wid:
+        raise Refused(str(rules.fail(rules.ERR_BAD_REQUEST, "参考的作品编号无效，或与当前作品相同")))
     work = {"id": wid, "author": login}
-    for k in ("title", "desc", "video", "base", "assets", "links", "recipe"):
+    for k in ("title", "desc", "video", "base", "assets", "links", "recipe", "based_on"):
         if k in w:
             work[k] = w[k]
     pic = path_of("covers", wid + ".jpg")

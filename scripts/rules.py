@@ -629,6 +629,38 @@ def check_card(r):
         if not jpeg_b64(av, MAX_AVATAR_B64):
             raise fail(ERR_BAD_IMAGE)
         out["avatar"] = av
+    showcase = check_showcase(r.get("showcase"))
+    if showcase:
+        out["showcase"] = showcase
+    return out
+
+
+MAX_SHOWCASE = 60
+
+
+def check_showcase(items):
+    """Validate the public Booth asset list with the same limits as Go."""
+    items = _list(items)
+    if len(items) > MAX_SHOWCASE:
+        raise fail(ERR_TOO_LONG, "素材展示柜最多 60 件")
+    out, seen = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise fail(ERR_BAD_REQUEST)
+        bid = _str(item.get("booth_id"))
+        if not re.fullmatch(r"[0-9]{1,12}", bid):
+            raise fail(ERR_BAD_REQUEST, "素材展示柜的 Booth 商品编号无效")
+        if bid in seen:
+            raise fail(ERR_BAD_REQUEST, "素材展示柜中有重复的 Booth 商品")
+        seen.add(bid)
+        name = clean_text(_str(item.get("name")), MAX_ASSET_NAME, False, 0)
+        if not name:
+            raise fail(ERR_BAD_TEXT, "素材名称不能为空")
+        shop = clean_text(_str(item.get("shop")), MAX_SHOP_NAME, False, 0)
+        row = {"booth_id": bid, "name": name}
+        if shop:
+            row["shop"] = shop
+        out.append(row)
     return out
 
 
@@ -657,6 +689,11 @@ def check_work(r):
         raise fail(ERR_BAD_REQUEST)
     out = {}
     rep = _str(r.get("replace"))
+    based = _str(r.get("based_on"))
+    if based:
+        if not work_id_ok(based) or based == rep:
+            raise fail(ERR_BAD_REQUEST, "参考的作品编号无效，或与当前作品相同")
+        out["based_on"] = based
     if rep:
         if not work_id_ok(rep):
             raise fail(ERR_BAD_REQUEST)
@@ -719,7 +756,7 @@ def check_work(r):
 
 def work_req_json_order(w):
     """作品按 MioVRCA 程序写出的栏目顺序排列（只影响 JSON 的样子）。"""
-    keys = ["title", "desc", "video", "base", "assets", "links", "recipe", "rights_ok", "cover", "replace"]
+    keys = ["based_on", "title", "desc", "video", "base", "assets", "links", "recipe", "rights_ok", "cover", "replace"]
     return {k: w[k] for k in keys if k in w}
 
 

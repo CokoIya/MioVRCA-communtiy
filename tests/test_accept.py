@@ -84,6 +84,38 @@ class Repo(unittest.TestCase):
 
 
 class Profiles(Repo):
+    def test_showcase_publish_replace_and_refuse(self):
+        items = [{"booth_id": "123", "name": " Dress ", "shop": " Shop "}]
+        accept_issue.accept_profile(code("profile", {"nickname": "Mio", "showcase": items}), 10, "mio")
+        self.assertEqual(self.read("profiles", "mio.json")["showcase"],
+                         [{"booth_id": "123", "name": "Dress", "shop": "Shop"}])
+        before = self.read("profiles", "mio.json")
+        for bad in (items * 2, [{"booth_id": "../1", "name": "x"}], items * 61):
+            with self.subTest(showcase=bad[:2]):
+                with self.assertRaises(accept_issue.Refused):
+                    accept_issue.accept_profile(code("profile", {"nickname": "Mio", "showcase": bad}), 11, "mio")
+                self.assertEqual(self.read("profiles", "mio.json"), before)
+        accept_issue.accept_profile(code("profile", {"nickname": "Mio"}), 12, "mio")
+        self.assertNotIn("showcase", self.read("profiles", "mio.json"))
+
+    def test_work_references_survive_rebuild_and_update(self):
+        accept_issue.accept_work(code("work", {"title": "Original"}), 10, "mio", "2026-10-10T00:00:00Z")
+        accept_issue.accept_work(code("work", {"title": "Derived", "based_on": "w10"}), 11, "sora", "2026-10-11T00:00:00Z")
+        self.assertEqual(self.read("works", "w11.json")["based_on"], "w10")
+        self.assertEqual(self.read("works.json")["works"][0]["based_on"], "w10")
+        accept_issue.accept_work(code("work", {"title": "Updated", "replace": "w11", "based_on": "w999"}), 12, "sora", "2026-10-12T00:00:00Z")
+        self.assertEqual(self.read("works", "w11.json")["based_on"], "w999")
+        before = self.read("works", "w11.json")
+        with self.assertRaises(accept_issue.Refused):
+            accept_issue.accept_work(code("work", {"title": "Self", "replace": "w11", "based_on": "w11"}), 13, "sora", "2026-10-12T00:00:00Z")
+        self.assertEqual(self.read("works", "w11.json"), before)
+        with self.assertRaises(accept_issue.Refused):
+            accept_issue.accept_work(code("work", {"title": "Self", "based_on": "w14"}), 14, "sora", "2026-10-12T00:00:00Z")
+        self.assertFalse(self.exists("works", "w14.json"))
+        accept_issue.accept_work(code("work", {"title": "Cleared", "replace": "w11"}), 15, "sora", "2026-10-12T00:00:00Z")
+        self.assertNotIn("based_on", self.read("works", "w11.json"))
+        self.assertNotIn("based_on", self.read("works.json")["works"][0])
+
     def test_card(self):
         card = {"nickname": " 澪 ", "bio": "做模型", "langs": ["zh", "ja"], "links": [{"kind": "booth_shop", "url": "https://MIO.booth.pm/"}],
                 "birthday": {"month": 2, "day": 29}, "following": ["luna", "MioIya"]}

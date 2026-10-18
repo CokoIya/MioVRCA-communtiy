@@ -85,6 +85,27 @@ def jpeg(n):
 class Limits(unittest.TestCase):
     """用例文件里没有的：图片的最大尺寸（为了文件的大小）。"""
 
+    def test_v3_refusal_codes(self):
+        for items, code in [
+            ([{"booth_id": "1", "name": "a"}] * 61, "too_long"),
+            ([{"booth_id": "1", "name": "a"}] * 2, "bad_request"),
+            ([{"booth_id": "１２", "name": "a"}], "bad_request"),
+            ([{"booth_id": "1", "name": ""}], "bad_text"),
+            ([{"booth_id": "1", "name": "a" * 81}], "too_long"),
+            ([{"booth_id": "1", "name": "a", "shop": "b" * 41}], "too_long"),
+        ]:
+            self.assertEqual(answer(rules.check_card, {"nickname": "Mio", "showcase": items})["code"], code)
+        for based in ("w12", "W12", "../w12", "w1234567890"):
+            self.assertEqual(answer(rules.check_work, {"title": "Work", "replace": "w12", "based_on": based})["code"], "bad_request")
+
+    def test_legacy_codes(self):
+        path = os.path.join(os.path.dirname(CASES), "legacy_codes.json")
+        if not os.path.isfile(path):
+            self.skipTest("legacy fixtures require the app source tree")
+        with open(path, encoding="utf-8") as f:
+            for c in json.load(f):
+                self.assertEqual(run(c["fn"], c["args"]), c["want"])
+
     def test_pictures(self):
         self.assertTrue(rules.jpeg_b64(jpeg(49152), rules.MAX_AVATAR_B64))  # 65 536 个字符
         self.assertFalse(rules.jpeg_b64(jpeg(49153), rules.MAX_AVATAR_B64))
